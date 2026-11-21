@@ -15,6 +15,7 @@ public class WorkerOneTest {
         var test = new WorkerOneTest();
         test.shouldPersistNewUserUpdateAtAndReturnTrue();
         test.returnFalseWhenFailedToUpdateUserUpdateAt();
+        test.sendEmailWhenFailedPersistUserUpdatedAt();
         System.out.println("ALL TESTS PASSED");
     }
 
@@ -49,6 +50,26 @@ public class WorkerOneTest {
 
         assertFalse(result);
         dbMng.saveUserWithUpdatedAt(clockTimeMillis);
+    }
+
+    public void sendEmailWhenFailedPersistUserUpdatedAt() {
+        // then result is false
+        User user = new User();
+        DatabaseManagerTestDouble dbMng = new DatabaseManagerTestDouble();
+        var message = "Something went wrong";
+        dbMng.onSaveUserDo(() -> {
+            throw new RuntimeException(message);
+        });
+        ClockTestDouble testClock = new ClockTestDouble();
+        WorkerOne worker = new WorkerOne(dbMng, testClock);
+        long clockTimeMillis = 1111111111111L;
+        testClock.setTime(clockTimeMillis);
+
+        boolean result = worker.updateUser(user);
+
+        assertFalse(result);
+        dbMng.saveUserWithUpdatedAt(clockTimeMillis);
+        dbMng.calledSendEmailWithMessage(message);
         dbMng.noMoreOtherCalls();
     }
 
@@ -81,8 +102,21 @@ public class WorkerOneTest {
 
         @Override
         public void sentEmail(String message) {
-            methodCalls.add(new MethodCall("sentEmail", message));
+            methodCalls.add(new MethodCall("sendEmail", message));
         }
+
+        public void calledSendEmailWithMessage(String message) {
+            var call = methodCalls.stream()
+                    .filter(c -> c.name().equals("sendEmail"))
+                    .findFirst()
+                    .orElseThrow(() -> new AssertionException("Expected to 'sendEmail' be called with message '%s' but method was not called".formatted(message)));
+            var arg = ((String) call.arg());
+            if (!arg.equals(message))
+                throw new AssertionException("Expected to 'sendEmail' be called with message '%s' but was called with '%s'"
+                        .formatted(message, arg));
+            methodCalls.remove(call);
+        }
+
 
         void saveUserWithUpdatedAt(long epochMillis) {
             var call = methodCalls.stream()

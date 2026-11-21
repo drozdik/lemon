@@ -15,6 +15,7 @@ public class WorkerOne {
         try {
             databaseManager.saveUser(user);
         } catch (Exception e) {
+            databaseManager.sentEmail(e.getMessage());
             return false;
         }
         return true;
