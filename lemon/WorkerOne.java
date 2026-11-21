@@ -12,7 +12,11 @@ public class WorkerOne {
     public boolean updateUser(User user) {
         long now = appClock.currentTimeMillis();
         user.setTimestamp(now);
-        databaseManager.saveUser(user);
+        try {
+            databaseManager.saveUser(user);
+        } catch (Exception e) {
+            return false;
+        }
         return true;
     }
 }
